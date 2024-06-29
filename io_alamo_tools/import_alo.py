@@ -1,23 +1,20 @@
 import bpy
 from . import settings, utils, import_ala
 
-from bpy.props import (StringProperty,
-                       BoolProperty,
-                       IntProperty,
-                       FloatProperty,
-                       EnumProperty,
-                       PointerProperty,
-                       )
-from bpy.types import (Panel,
-                       Operator,
-                       PropertyGroup,
-                       )
+from bpy.props import (
+    StringProperty,
+    BoolProperty,
+    EnumProperty,
+)
+from bpy.types import (
+    Operator,
+    PropertyGroup,
+)
 import struct
 import mathutils
 import math
 from math import pi
 from mathutils import Vector
-from bpy.props import *
 from bpy_extras.io_utils import ExportHelper, ImportHelper
 import sys
 import os
@@ -26,33 +23,36 @@ import bmesh
 
 
 def boneEnumCallback(scene, context):
-    bones = [('None', 'None', '', '', 0)]
+    bones = [("None", "None", "", "", 0)]
     counter = 1
     armature = utils.findArmature()
-    if(armature != None):
+    if armature != None:
         for bone in armature.data.bones:
-            bones.append((bone.name, bone.name, '', '', counter))
+            bones.append((bone.name, bone.name, "", "", counter))
             counter += 1
     bones.sort(key=lambda tup: tup[0])
     return bones
 
 
-class ALO_Importer(bpy.types.Operator):
-    """ALO Importer"""      # blender will use this as a tooltip for menu items and buttons.
-    bl_idname = "import_mesh.alo"        # unique identifier for buttons and menu items to reference.
-    bl_label = "Import ALO File"         # display name in the interface.
-    bl_options = {'REGISTER', 'UNDO'}  # enable undo for the operator.
+class ALO_Importer(Operator):
+    """ALO Importer"""  # blender will use this as a tooltip for menu items and buttons.
+
+    bl_idname = (
+        "import_mesh.alo"  # unique identifier for buttons and menu items to reference.
+    )
+    bl_label = "Import ALO File"  # display name in the interface.
+    bl_options = {"REGISTER", "UNDO"}  # enable undo for the operator.
     filename_ext = ".alo"
-    filter_glob: StringProperty(default="*.alo", options={'HIDDEN'})
+    filter_glob: StringProperty(default="*.alo", options={"HIDDEN"})
     bl_info = {
         "name": "ALO Importer",
         "category": "Import",
     }
 
     parentName: EnumProperty(
-        name='Attachment Bone',
+        name="Attachment Bone",
         description="Bone that imported models are attached to",
-        items=boneEnumCallback
+        items=boneEnumCallback,
     )
 
     importAnimations: BoolProperty(
@@ -62,15 +62,15 @@ class ALO_Importer(bpy.types.Operator):
     )
 
     textureOverride: EnumProperty(
-        name = "Submod Texture Override",
-        description = "Try to import textures from a different submod",
+        name="Submod Texture Override",
+        description="Try to import textures from a different submod",
         items=(
             ("NONE", "None", ""),
-            ('CoreSaga', "Core Saga", ""),
-            ('FotR', "Fall of the Republic", ""),
-            ('GCW', "Imperial Reign", ""),
-            ('Rev', "Revan's Revenge", ""),
-            ('TR', "Thrawn's Revenge", ""),
+            ("CoreSaga", "Core Saga", ""),
+            ("FotR", "Fall of the Republic", ""),
+            ("GCW", "Imperial Reign", ""),
+            ("Rev", "Revan's Revenge", ""),
+            ("TR", "Thrawn's Revenge", ""),
         ),
         default="NONE",
     )
@@ -83,7 +83,11 @@ class ALO_Importer(bpy.types.Operator):
         layout.prop(self, "textureOverride")
 
     filepath: StringProperty(
-        name="File Path", description="Filepath used for importing the ALO file", maxlen=1024, default="")
+        name="File Path",
+        description="Filepath used for importing the ALO file",
+        maxlen=1024,
+        default="",
+    )
 
     # execute() is called by blender when running the operator.
     def execute(self, context):
@@ -92,7 +96,7 @@ class ALO_Importer(bpy.types.Operator):
         def process_active_junk():
             meshNameList = []
             # loop over file until end is reached
-            while(file.tell() < os.path.getsize(self.properties.filepath)):
+            while file.tell() < os.path.getsize(self.properties.filepath):
                 active_chunk = file.read(4)
                 # print(active_chunk)
                 if active_chunk == b"\x00\x02\x00\00":
@@ -102,31 +106,34 @@ class ALO_Importer(bpy.types.Operator):
                     meshName = processMeshChunk()
                     meshNameList.append(meshName)
                 elif active_chunk == b"\x00\x13\x00\00":  # light chunk is irrelevant
-                    self.report({"WARNING"}, "ALAMO - File contains light objects, these are not supported and might cause minor issues")
+                    self.report(
+                        {"WARNING"},
+                        "ALAMO - File contains light objects, these are not supported and might cause minor issues",
+                    )
                     size = read_chunk_length()
                     file.seek(size, 1)  # skip to next chunk
                 elif active_chunk == b"\x00\x06\x00\00":
                     file.seek(8, 1)  # skip size and next header
                     n_objects_proxies = get_n_objects_n_proxies()
-                    n_objects = n_objects_proxies['n_objects']
-                    n_proxies = n_objects_proxies['n_proxies']
-                    print('Found Connection Chunk')
+                    n_objects = n_objects_proxies["n_objects"]
+                    n_proxies = n_objects_proxies["n_proxies"]
+                    print("Found Connection Chunk")
                 elif active_chunk == b"\x02\x06\x00\00":
                     file.seek(4, 1)  # skip size
                     read_conncetion(armatureData, meshNameList)
                 elif active_chunk == b"\x03\x06\x00\00":
                     read_proxy()
 
-        #armature and bones
+        # armature and bones
 
-        class Armature():
+        class Armature:
             def __init__(self):
                 self.bones = []
                 self.boneCount = 0
 
-        class Bone():
+        class Bone:
             def __init__(self):
-                self.name = ''
+                self.name = ""
                 self.parentIndex = 0
                 self.visible = 0
                 self.billboard = 0
@@ -134,19 +141,23 @@ class ALO_Importer(bpy.types.Operator):
 
         def removeShadowDoubles():
             for object in bpy.data.objects:
-                if(object.type == 'MESH'):
-                    if(len(object.material_slots) <= 0):
+                if object.type == "MESH":
+                    if len(object.material_slots) <= 0:
                         continue  # already existing objects might not have a material
                     shader = object.material_slots[0].material.shaderList.shaderList
-                    if (shader == 'MeshCollision.fx' or shader == 'RSkinShadowVolume.fx' or shader == 'MeshShadowVolume.fx'):
-                        bpy.ops.object.select_all(action='DESELECT')
+                    if (
+                        shader == "MeshCollision.fx"
+                        or shader == "RSkinShadowVolume.fx"
+                        or shader == "MeshShadowVolume.fx"
+                    ):
+                        bpy.ops.object.select_all(action="DESELECT")
 
                         bpy.context.view_layer.objects.active = object
                         object.select_set(True)
-                        bpy.ops.object.mode_set(mode='EDIT')
-                        bpy.ops.mesh.select_all(action='SELECT')
+                        bpy.ops.object.mode_set(mode="EDIT")
+                        bpy.ops.mesh.select_all(action="SELECT")
                         bpy.ops.mesh.remove_doubles()
-                        bpy.ops.object.mode_set(mode='OBJECT')
+                        bpy.ops.object.mode_set(mode="OBJECT")
 
         def createArmature():
 
@@ -157,7 +168,8 @@ class ALO_Importer(bpy.types.Operator):
 
             # create object
             armatureObj = bpy.data.objects.new(
-                fileName + "Rig", object_data=armatureBlender)
+                fileName + "Rig", object_data=armatureBlender
+            )
 
             # Link object to collection
             importCollection.objects.link(armatureObj)
@@ -169,21 +181,21 @@ class ALO_Importer(bpy.types.Operator):
             armatureObj.show_in_front = True
             utils.setModeToEdit()
 
-            armatureBlender.display_type = 'STICK'
+            armatureBlender.display_type = "STICK"
             armatureData = Armature()
 
             file.seek(4, 1)  # skip size
             get_bone_count(armatureData)
 
             counter = 0
-            while (counter < armatureData.boneCount):
+            while counter < armatureData.boneCount:
                 process_bone(armatureData)
                 counter += 1
 
             for bone in armatureData.bones:
                 createBone(bone, armatureBlender, armatureData)
 
-            bpy.ops.object.mode_set(mode='OBJECT')
+            bpy.ops.object.mode_set(mode="OBJECT")
 
             bpy.context.scene.ActiveSkeleton.skeletonEnum = armatureObj.name
 
@@ -202,33 +214,40 @@ class ALO_Importer(bpy.types.Operator):
             file.seek(12, 1)  # skip header and size and next header
             bone.name = cut_string(read_string())
             file.seek(8, 1)  # skip header and size
-            bone.parentIndex = struct.unpack('<I', file.read(4))[0]
-            if bone.name == 'Root':
+            bone.parentIndex = struct.unpack("<I", file.read(4))[0]
+            if bone.name == "Root":
                 bone.parentIndex = 0
-            bone.visible = struct.unpack('<I', file.read(4))[0]
-            bone.billboard = struct.unpack('<I', file.read(4))[0]
-            matrix1_1 = struct.unpack('<f', file.read(4))[0]
-            matrix1_2 = struct.unpack('<f', file.read(4))[0]
-            matrix1_3 = struct.unpack('<f', file.read(4))[0]
-            matrix1_4 = struct.unpack('<f', file.read(4))[0]
-            matrix2_1 = struct.unpack('<f', file.read(4))[0]
-            matrix2_2 = struct.unpack('<f', file.read(4))[0]
-            matrix2_3 = struct.unpack('<f', file.read(4))[0]
-            matrix2_4 = struct.unpack('<f', file.read(4))[0]
-            matrix3_1 = struct.unpack('<f', file.read(4))[0]
-            matrix3_2 = struct.unpack('<f', file.read(4))[0]
-            matrix3_3 = struct.unpack('<f', file.read(4))[0]
-            matrix3_4 = struct.unpack('<f', file.read(4))[0]
-            bone_row_1 = ((matrix1_1, matrix1_2, matrix1_3, matrix1_4))
-            bone_row_2 = ((matrix2_1, matrix2_2, matrix2_3, matrix2_4))
-            bone_row_3 = ((matrix3_1, matrix3_2, matrix3_3, matrix3_4))
+            bone.visible = struct.unpack("<I", file.read(4))[0]
+            bone.billboard = struct.unpack("<I", file.read(4))[0]
+            matrix1_1 = struct.unpack("<f", file.read(4))[0]
+            matrix1_2 = struct.unpack("<f", file.read(4))[0]
+            matrix1_3 = struct.unpack("<f", file.read(4))[0]
+            matrix1_4 = struct.unpack("<f", file.read(4))[0]
+            matrix2_1 = struct.unpack("<f", file.read(4))[0]
+            matrix2_2 = struct.unpack("<f", file.read(4))[0]
+            matrix2_3 = struct.unpack("<f", file.read(4))[0]
+            matrix2_4 = struct.unpack("<f", file.read(4))[0]
+            matrix3_1 = struct.unpack("<f", file.read(4))[0]
+            matrix3_2 = struct.unpack("<f", file.read(4))[0]
+            matrix3_3 = struct.unpack("<f", file.read(4))[0]
+            matrix3_4 = struct.unpack("<f", file.read(4))[0]
+            bone_row_1 = (matrix1_1, matrix1_2, matrix1_3, matrix1_4)
+            bone_row_2 = (matrix2_1, matrix2_2, matrix2_3, matrix2_4)
+            bone_row_3 = (matrix3_1, matrix3_2, matrix3_3, matrix3_4)
             bone_row_4 = (0, 0, 0, 1)
-            bone.matrix = ((bone_row_1), (bone_row_2),
-                           (bone_row_3), (bone_row_4))
+            bone.matrix = ((bone_row_1), (bone_row_2), (bone_row_3), (bone_row_4))
 
         def createBone(boneData, armatureBlender, armatureData):
-            billboardModeArray = ["Disable", "Parallel", "Face", "ZAxis View",
-                                  "ZAxis Light", "ZAxis Wind", "Sunlight Glow", "Sun"]
+            billboardModeArray = [
+                "Disable",
+                "Parallel",
+                "Face",
+                "ZAxis View",
+                "ZAxis Light",
+                "ZAxis Wind",
+                "Sunlight Glow",
+                "Sun",
+            ]
 
             bone_matrix = []  # initialize for use
             bone = armatureBlender.edit_bones.new(boneData.name)
@@ -240,22 +259,21 @@ class ALO_Importer(bpy.types.Operator):
                 bone.Visible = False
 
             parent = armatureData.bones[boneData.parentIndex].name
-            if(parent != 'Root'):
+            if parent != "Root":
                 bone.parent = armatureBlender.edit_bones[parent]
-                bone.matrix = bone.parent.matrix @ mathutils.Matrix(
-                    boneData.matrix)
+                bone.matrix = bone.parent.matrix @ mathutils.Matrix(boneData.matrix)
             else:
                 bone.matrix = mathutils.Matrix(boneData.matrix)
 
             bone.billboardMode.billboardMode = billboardModeArray[boneData.billboard]
 
-            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.object.mode_set(mode="EDIT")
 
-        #mesh and material
+        # mesh and material
 
-        class meshClass():
+        class meshClass:
             def __init__(self):
-                self.name = ''
+                self.name = ""
                 self.isHidden = False
                 self.collision = False
                 self.nMaterials = 0
@@ -267,7 +285,7 @@ class ALO_Importer(bpy.types.Operator):
                     nVerts += subMesh.nVertices
                 return nVerts
 
-        class subMeshClass():
+        class subMeshClass:
             def __init__(self):
                 self.nVertices = 0
                 self.nFaces = 0
@@ -308,7 +326,9 @@ class ALO_Importer(bpy.types.Operator):
                 for face in mesh.polygons:
                     if face.index >= currentSubMeshMaxFaceIndex:
                         subMeshCounter += 1
-                        currentSubMeshMaxFaceIndex += currentMesh.subMeshList[subMeshCounter].nFaces
+                        currentSubMeshMaxFaceIndex += currentMesh.subMeshList[
+                            subMeshCounter
+                        ].nFaces
                     face.material_index = subMeshCounter
 
             # create UVs
@@ -343,7 +363,7 @@ class ALO_Importer(bpy.types.Operator):
             mesh_name = ""
             while counter < length - 1:
                 letter = str(file.read(1))
-                letter = letter[2:len(letter) - 1]
+                letter = letter[2 : len(letter) - 1]
                 mesh_name += letter
                 counter += 1
             file.seek(1, 1)  # skip end byte of name
@@ -365,7 +385,7 @@ class ALO_Importer(bpy.types.Operator):
 
             counter = 0
             faceOffset = 0
-            while (counter < currentMesh.nMaterials):
+            while counter < currentMesh.nMaterials:
                 currentSubMesh = subMeshClass()
                 currentMesh.subMeshList.append(currentSubMesh)
 
@@ -383,7 +403,7 @@ class ALO_Importer(bpy.types.Operator):
             file.seek(4, 1)  # skip header
             meshDataChunkSize = read_chunk_length()
             currentPosition = file.tell()
-            while (file.tell() < currentPosition + meshDataChunkSize):
+            while file.tell() < currentPosition + meshDataChunkSize:
                 active_chunk = file.read(4)
                 if active_chunk == b"\x01\x00\x01\00":
                     file.seek(4, 1)  # skip size, chunk is always 128 byte
@@ -398,8 +418,7 @@ class ALO_Importer(bpy.types.Operator):
                     read_animation_mapping(currentSubMesh)
                 elif active_chunk == b"\x07\x00\x01\00":
                     file.seek(4, 1)  # skip size
-                    vertex_data = process_vertex_buffer_2(
-                        False, currentSubMesh)
+                    vertex_data = process_vertex_buffer_2(False, currentSubMesh)
                 elif active_chunk == b"\x05\x00\x01\00":
                     file.seek(4, 1)  # skip size
                     # old version of the chunk
@@ -412,7 +431,7 @@ class ALO_Importer(bpy.types.Operator):
             file.seek(4, 1)  # skip header
             materialChunkSize = read_chunk_length()
             currentPosition = file.tell()
-            while (file.tell() < currentPosition + materialChunkSize):
+            while file.tell() < currentPosition + materialChunkSize:
                 active_chunk = file.read(4)
                 if active_chunk == b"\x01\x01\x01\00":
                     set_alamo_shader(currentSubMesh)
@@ -436,20 +455,28 @@ class ALO_Importer(bpy.types.Operator):
             animation_mapping = []
             while counter < read_counter:
                 currentSubMesh.animationMapping.append(
-                    struct.unpack("I", file.read(4))[0])
+                    struct.unpack("I", file.read(4))[0]
+                )
                 counter += 1
             return animation_mapping
 
-        def material_group_additive(context, operator, group_name, material, is_emissive):
-            node_group = bpy.data.node_groups.new(group_name, 'ShaderNodeTree')
+        def material_group_additive(
+            context, operator, group_name, material, is_emissive
+        ):
+            node_group = bpy.data.node_groups.new(group_name, "ShaderNodeTree")
 
             node = node_group.nodes.new
             link = node_group.links.new
 
-            group_out = node('NodeGroupOutput')
+            group_out = node("NodeGroupOutput")
             group_out.location.x += 200.0
-            node_group.outputs.new('NodeSocketShader', 'Surface')
 
+            node_group.interface.new_socket(
+                name="Surface",
+                description="Surface",
+                in_out="OUTPUT",
+                socket_type="NodeSocketColor",
+            )
             mix_shader = node("ShaderNodeMixShader")
 
             transparent = node("ShaderNodeBsdfTransparent")
@@ -460,10 +487,15 @@ class ALO_Importer(bpy.types.Operator):
             base_image_node.location.x -= 500
 
             if is_emissive:
-                group_in = node('NodeGroupInput')
+                group_in = node("NodeGroupInput")
                 group_in.location.x -= 700
-                emissive = node_group.inputs.new(
-                    'NodeSocketFloat', 'Emissive Strength')
+
+                emissive = node_group.interface.new_socket(
+                    name="Emissive Strength",
+                    description="Emissive Strength",
+                    in_out="INPUT",
+                    socket_type="NodeSocketFloat",
+                )
                 emissive.default_value = 1.0
                 color = node("ShaderNodeEmission")
                 link(group_in.outputs[0], color.inputs[1])
@@ -472,24 +504,25 @@ class ALO_Importer(bpy.types.Operator):
                 eevee_alpha_fix.location.y += 300
                 # Fix for obnoxious transparency bug in Eevee
                 link(base_image_node.outputs[1], eevee_alpha_fix.inputs[1])
-                link(base_image_node.outputs['Color'],
-                     mix_shader.inputs['Fac'])
+                link(base_image_node.outputs["Color"], mix_shader.inputs["Fac"])
 
             else:
                 color = node("ShaderNodeBsdfDiffuse")
-                link(base_image_node.outputs['Alpha'],
-                     mix_shader.inputs['Fac'])
+                link(base_image_node.outputs["Alpha"], mix_shader.inputs["Fac"])
 
             color.location.x -= 200
             color.location.y -= 150
 
-            link(base_image_node.outputs['Color'], color.inputs[0])
+            link(base_image_node.outputs["Color"], color.inputs[0])
             link(transparent.outputs[0], mix_shader.inputs[1])
             link(color.outputs[0], mix_shader.inputs[2])
 
-            if material.BaseTexture != 'None' and material.BaseTexture in bpy.data.images:
+            if (
+                material.BaseTexture != "None"
+                and material.BaseTexture in bpy.data.images
+            ):
                 diffuse_texture = bpy.data.images[material.BaseTexture]
-                diffuse_texture.alpha_mode = 'CHANNEL_PACKED'
+                diffuse_texture.alpha_mode = "CHANNEL_PACKED"
                 base_image_node.image = diffuse_texture
 
             link(mix_shader.outputs[0], group_out.inputs[0])
@@ -497,43 +530,82 @@ class ALO_Importer(bpy.types.Operator):
             return node_group
 
         def material_group_basic(context, operator, group_name, material):
-            node_group = bpy.data.node_groups.new(group_name, 'ShaderNodeTree')
+            # Create a new ShaderNodeTree
+            node_group = bpy.data.node_groups.new(group_name, "ShaderNodeTree")
 
+            # Convenience functions for creating nodes and links
             node = node_group.nodes.new
             link = node_group.links.new
 
-            group_in = node('NodeGroupInput')
+            # Create NodeGroupInput
+            group_in = node("NodeGroupInput")
             group_in.location.x -= 700
-            node_group.inputs.new('NodeSocketColor', 'Team Color')
-            spec = node_group.inputs.new(
-                'NodeSocketFloat', 'Specular Intensity')
-            spec.default_value = 0.1
 
-            group_out = node('NodeGroupOutput')
-            node_group.outputs.new('NodeSocketColor', 'Base Color')
-            node_group.outputs.new('NodeSocketFloat', 'Specular')
-            node_group.outputs.new('NodeSocketVector', 'Normal')
+            # Create and set up inputs
+            node_group.interface.new_socket(
+                name="Team Color",
+                description="color map",
+                in_out="INPUT",
+                socket_type="NodeSocketColor",
+            )
+            node_group.interface.new_socket(
+                name="Specular Intensity",
+                description="specular map",
+                in_out="INPUT",
+                socket_type="NodeSocketFloat",
+            )
 
+            # Create NodeGroupOutput
+            group_out = node("NodeGroupOutput")
+            group_out.location.x += 700
+
+            # Create and set up outputs
+            node_group.interface.new_socket(
+                name="Base Color",
+                description="color map",
+                in_out="OUTPUT",
+                socket_type="NodeSocketColor",
+            )
+
+            node_group.interface.new_socket(
+                name="Specular",
+                description="Specular",
+                in_out="OUTPUT",
+                socket_type="NodeSocketFloat",
+            )
+
+            node_group.interface.new_socket(
+                name="Normal",
+                description="Normal",
+                in_out="OUTPUT",
+                socket_type="NodeSocketVector",
+            )
+
+            # Create base image node
             base_image_node = node("ShaderNodeTexImage")
             base_image_node.location.x -= 500
 
+            # Create mix node
             mix_node = node("ShaderNodeMixRGB")
-            mix_node.blend_type = 'COLOR'
+            mix_node.blend_type = "COLOR"
             mix_node.location.x -= 200
 
-            link(base_image_node.outputs['Color'], mix_node.inputs['Color1'])
-            link(base_image_node.outputs['Alpha'], mix_node.inputs['Fac'])
-            link(mix_node.outputs['Color'], group_out.inputs['Base Color'])
+            # Link nodes for base color
+            link(base_image_node.outputs["Color"], mix_node.inputs["Color1"])
+            link(base_image_node.outputs["Alpha"], mix_node.inputs["Fac"])
+            link(mix_node.outputs["Color"], group_out.inputs["Base Color"])
 
+            # Create normal image node
             normal_image_node = node("ShaderNodeTexImage")
-            normal_image_node.location.x -= 1100.0
-            normal_image_node.location.y -= 300.0
+            normal_image_node.location.x -= 1100
+            normal_image_node.location.y -= 300
 
+            # Create nodes for normal map processing
             normal_split = node("ShaderNodeSeparateRGB")
             normal_split.location.x -= 800
             normal_split.location.y -= 300
             normal_invert = node("ShaderNodeMath")
-            normal_invert.operation = 'SUBTRACT'
+            normal_invert.operation = "SUBTRACT"
             normal_invert.inputs[0].default_value = 1
             normal_invert.location.x -= 600
             normal_invert.location.y -= 300
@@ -542,42 +614,48 @@ class ALO_Importer(bpy.types.Operator):
             normal_combine.location.y -= 300
 
             normal_map_node = node("ShaderNodeNormalMap")
-            normal_map_node.space = 'TANGENT'
-            normal_map_node.location.x -= 200.0
-            normal_map_node.location.y -= 300.0
+            normal_map_node.space = "TANGENT"
+            normal_map_node.location.x -= 200
+            normal_map_node.location.y -= 300
 
+            # Create specular multiply node
             specular_multiply = node("ShaderNodeMath")
-            specular_multiply.operation = 'MULTIPLY'
+            specular_multiply.operation = "MULTIPLY"
             specular_multiply.location.x -= 800
             specular_multiply.location.y -= 100
 
-            link(normal_image_node.outputs['Color'],
-                 normal_split.inputs['Image'])
-            link(normal_split.outputs['R'], normal_combine.inputs['R'])
-            link(normal_split.outputs['G'], normal_invert.inputs[1])
-            link(normal_invert.outputs[0], normal_combine.inputs['G'])
-            link(normal_split.outputs['B'], normal_combine.inputs['B'])
+            # Link nodes for normal processing
+            link(normal_image_node.outputs["Color"], normal_split.inputs["Image"])
+            link(normal_split.outputs["R"], normal_combine.inputs["R"])
+            link(normal_split.outputs["G"], normal_invert.inputs[1])
+            link(normal_invert.outputs[0], normal_combine.inputs["G"])
+            link(normal_split.outputs["B"], normal_combine.inputs["B"])
             link(normal_combine.outputs[0], normal_map_node.inputs[1])
-            link(normal_map_node.outputs[0], group_out.inputs[2])
+            link(normal_map_node.outputs[0], group_out.inputs["Normal"])
 
-            link(normal_image_node.outputs['Alpha'],
-                 specular_multiply.inputs[0])
+            # Link nodes for specular processing
+            link(normal_image_node.outputs["Alpha"], specular_multiply.inputs[0])
+            link(group_in.outputs["Team Color"], mix_node.inputs["Color2"])
+            link(group_in.outputs["Specular Intensity"], specular_multiply.inputs[1])
+            link(specular_multiply.outputs[0], group_out.inputs["Specular"])
 
-            link(group_in.outputs['Team Color'], mix_node.inputs['Color2'])
-            link(group_in.outputs['Specular Intensity'],
-                 specular_multiply.inputs[1])
-            link(specular_multiply.outputs[0], group_out.inputs[1])
-
-            if material.BaseTexture != 'None' and material.BaseTexture in bpy.data.images:
+            # Set images for base and normal texture nodes if available
+            if (
+                material.BaseTexture != "None"
+                and material.BaseTexture in bpy.data.images
+            ):
                 diffuse_texture = bpy.data.images[material.BaseTexture]
-                diffuse_texture.alpha_mode = 'CHANNEL_PACKED'
+                diffuse_texture.alpha_mode = "CHANNEL_PACKED"
                 base_image_node.image = diffuse_texture
 
-            if material.NormalTexture != 'None' and material.NormalTexture in bpy.data.images:
+            if (
+                material.NormalTexture != "None"
+                and material.NormalTexture in bpy.data.images
+            ):
                 normal_texture = bpy.data.images[material.NormalTexture]
-                normal_texture.alpha_mode = 'CHANNEL_PACKED'
+                normal_texture.alpha_mode = "CHANNEL_PACKED"
                 normal_image_node.image = normal_texture
-                normal_image_node.image.colorspace_settings.name = 'Raw'
+                normal_image_node.image.colorspace_settings.name = "Non-Color"
 
             return node_group
 
@@ -586,45 +664,48 @@ class ALO_Importer(bpy.types.Operator):
             nt = material.node_tree
             nodes = nt.nodes
             links = nt.links
-            
+
             # clean up
-            while(nodes):
+            while nodes:
                 nodes.remove(nodes[0])
 
             output = nodes.new("ShaderNodeOutputMaterial")
             custom_node_name = material.name + "Group"
-            my_group = 'null'
+            my_group = "null"
 
-            if ("Additive" in material.shaderList.shaderList):
+            if "Additive" in material.shaderList.shaderList:
                 material.blend_method = "BLEND"
                 my_group = material_group_additive(
-                    self, context, custom_node_name, material, True)
+                    self, context, custom_node_name, material, True
+                )
                 mat_group = nt.nodes.new("ShaderNodeGroup")
                 mat_group.node_tree = bpy.data.node_groups[my_group.name]
                 mat_group.location.x -= 200.0
-                links.new(mat_group.outputs[0], output.inputs['Surface'])
-            elif ("Alpha" in material.shaderList.shaderList):
+                links.new(mat_group.outputs[0], output.inputs["Surface"])
+            elif "Alpha" in material.shaderList.shaderList:
                 material.blend_method = "BLEND"
                 my_group = material_group_additive(
-                    self, context, custom_node_name, material, False)
+                    self, context, custom_node_name, material, False
+                )
                 mat_group = nt.nodes.new("ShaderNodeGroup")
                 mat_group.node_tree = bpy.data.node_groups[my_group.name]
                 mat_group.location.x -= 200.0
-                links.new(mat_group.outputs[0], output.inputs['Surface'])
+                links.new(mat_group.outputs[0], output.inputs["Surface"])
             else:
                 bsdf = nodes.new("ShaderNodeBsdfPrincipled")
                 bsdf.inputs[4].default_value = 0.1  # Set metallic to 0.1
                 bsdf.inputs[7].default_value = 0.2  # Set roughness to 0.2
                 bsdf.location.x -= 300.0
-                links.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
+                links.new(bsdf.outputs["BSDF"], output.inputs["Surface"])
                 my_group = material_group_basic(
-                    self, context, custom_node_name, material)
+                    self, context, custom_node_name, material
+                )
                 mat_group = nt.nodes.new("ShaderNodeGroup")
                 mat_group.node_tree = bpy.data.node_groups[my_group.name]
                 mat_group.location.x -= 500.0
-                links.new(mat_group.outputs[0], bsdf.inputs['Base Color'])
+                links.new(mat_group.outputs[0], bsdf.inputs["Base Color"])
                 links.new(mat_group.outputs[1], bsdf.inputs[5])
-                links.new(mat_group.outputs[2], bsdf.inputs['Normal'])
+                links.new(mat_group.outputs[2], bsdf.inputs["Normal"])
 
         def create_material(currentSubMesh):
             if currentSubMesh.material.name != "DUMMYMATERIAL":
@@ -633,16 +714,55 @@ class ALO_Importer(bpy.types.Operator):
             oldMat = currentSubMesh.material
 
             texName = currentSubMesh.material.BaseTexture
-            texName = texName[0:len(texName) - 4] + " Material"
-            if texName in bpy.data.materials and oldMat.shaderList.shaderList != bpy.data.materials.get(texName).shaderList.shaderList:
+            texName = texName[0 : len(texName) - 4] + " Material"
+            if (
+                texName in bpy.data.materials
+                and oldMat.shaderList.shaderList
+                != bpy.data.materials.get(texName).shaderList.shaderList
+            ):
                 texName += "1"
             mat = assign_material(texName)
 
             mat.shaderList.shaderList = oldMat.shaderList.shaderList
 
             # TODO: Extract set_alamo_shader's shader finder to new function, use that here.
-            material_props = ["BaseTexture", "NormalTexture", "GlossTexture", "WaveTexture", "DistortionTexture", "CloudTexture", "CloudNormalTexture", "Emissive", "Diffuse", "Specular", "Shininess", "Colorization", "DebugColor", "UVOffset", "Color", "UVScrollRate", "DiffuseColor",
-                              "EdgeBrightness", "BaseUVScale", "WaveUVScale", "DistortUVScale", "BaseUVScrollRate", "WaveUVScrollRate", "DistortUVScrollRate", "BendScale", "Diffuse1", "CloudScrollRate", "CloudScale", "SFreq",  "TFreq", "DistortionScale", "Atmosphere", "CityColor", "AtmospherePower", "SpecularTexture"]
+            material_props = [
+                "BaseTexture",
+                "NormalTexture",
+                "GlossTexture",
+                "WaveTexture",
+                "DistortionTexture",
+                "CloudTexture",
+                "CloudNormalTexture",
+                "Emissive",
+                "Diffuse",
+                "Specular",
+                "Shininess",
+                "Colorization",
+                "DebugColor",
+                "UVOffset",
+                "Color",
+                "UVScrollRate",
+                "DiffuseColor",
+                "EdgeBrightness",
+                "BaseUVScale",
+                "WaveUVScale",
+                "DistortUVScale",
+                "BaseUVScrollRate",
+                "WaveUVScrollRate",
+                "DistortUVScrollRate",
+                "BendScale",
+                "Diffuse1",
+                "CloudScrollRate",
+                "CloudScale",
+                "SFreq",
+                "TFreq",
+                "DistortionScale",
+                "Atmosphere",
+                "CityColor",
+                "AtmospherePower",
+                "SpecularTexture",
+            ]
 
             for texture in material_props:
                 if texture in oldMat:
@@ -660,7 +780,6 @@ class ALO_Importer(bpy.types.Operator):
             else:
                 return bpy.data.materials.new(name)
 
-
         def create_object(currentMesh):
             global mesh
             mesh = bpy.data.meshes.new(currentMesh.name)
@@ -676,10 +795,10 @@ class ALO_Importer(bpy.types.Operator):
             context.view_layer.objects.active = object  # make created object active
             object.show_transparent = True
 
-            if (currentMesh.isHidden == 1):
+            if currentMesh.isHidden == 1:
                 object.Hidden = True
 
-            if (currentMesh.collision == 1):
+            if currentMesh.collision == 1:
                 object.HasCollision = True
 
             # create vertex groups
@@ -688,15 +807,14 @@ class ALO_Importer(bpy.types.Operator):
                 vertgroup = object.vertex_groups.new(name=bone.name)
 
         def process_vertex_buffer_2(legacy, currentSubMesh):
-            f = struct.Struct('f')  # unpack as float
-            i = struct.Struct('I')
+            f = struct.Struct("f")  # unpack as float
+            i = struct.Struct("I")
             counter = 0
             while counter < currentSubMesh.nVertices:
                 coX = f.unpack(file.read(4))[0]
                 coY = f.unpack(file.read(4))[0]
                 coZ = f.unpack(file.read(4))[0]
-                currentSubMesh.vertices.append(
-                    mathutils.Vector((coX, coY, coZ)))
+                currentSubMesh.vertices.append(mathutils.Vector((coX, coY, coZ)))
                 file.seek(12, 1)
                 UV = []
                 UV.append(f.unpack(file.read(4))[0])
@@ -710,62 +828,64 @@ class ALO_Importer(bpy.types.Operator):
                 counter += 1
 
         def process_index_buffer(currentSubMesh):
-            h = struct.Struct('H')  # unpack as unsigned Short
+            h = struct.Struct("H")  # unpack as unsigned Short
             counter = 0
             while counter < currentSubMesh.nFaces:
                 face = []
-                face.append(h.unpack(file.read(2))[
-                            0] + currentSubMesh.faceOffset)
-                face.append(h.unpack(file.read(2))[
-                            0] + currentSubMesh.faceOffset)
-                face.append(h.unpack(file.read(2))[
-                            0] + currentSubMesh.faceOffset)
+                face.append(h.unpack(file.read(2))[0] + currentSubMesh.faceOffset)
+                face.append(h.unpack(file.read(2))[0] + currentSubMesh.faceOffset)
+                face.append(h.unpack(file.read(2))[0] + currentSubMesh.faceOffset)
                 currentSubMesh.faces.append(face)
                 counter += 1
 
         def process_texture_chunk(material):
             file.seek(5, 1)  # skip chunk size and child header
-            length = struct.unpack("H", file.read(
-                1) + b'\x00')  # get string length
+            length = struct.unpack("H", file.read(1) + b"\x00")  # get string length
             global texture_function_name
             texture_function_name = ""
             counter = 0
             while counter < length[0] - 1:
                 letter = str(file.read(1))
-                letter = letter[2:len(letter) - 1]
+                letter = letter[2 : len(letter) - 1]
                 texture_function_name = texture_function_name + letter
                 counter += 1
             file.seek(1, 1)  # skip string end byte
             file.seek(1, 1)  # skip child header
-            length = struct.unpack("H", file.read(1) + b'\x00')  # get string length
+            length = struct.unpack("H", file.read(1) + b"\x00")  # get string length
             texture_name = ""
             counter = 0
             while counter < length[0] - 1:
                 letter = str(file.read(1))
-                letter = letter[2:len(letter) - 1]
+                letter = letter[2 : len(letter) - 1]
                 texture_name = texture_name + letter
                 counter += 1
             # replace texture format with .dds
             if texture_name != "None":
-                texture_name = texture_name[0:len(texture_name) - 4] + ".dds"
+                texture_name = texture_name[0 : len(texture_name) - 4] + ".dds"
             file.seek(1, 1)  # skip string end byte
-            
+
             load_image(texture_name)
-            exec('material.' + texture_function_name + '= texture_name')
+            exec("material." + texture_function_name + "= texture_name")
 
         def createUVLayer(layerName, uv_coordinates):
             vert_uvs = uv_coordinates
             mesh.uv_layers.new(name=layerName)
             mesh.uv_layers[-1].data.foreach_set(
-                "uv", [uv for pair in [vert_uvs[l.vertex_index] for l in mesh.loops] for uv in pair])
+                "uv",
+                [
+                    uv
+                    for pair in [vert_uvs[l.vertex_index] for l in mesh.loops]
+                    for uv in pair
+                ],
+            )
 
         def set_alamo_shader(currentSubMesh):  # create material and assign
             shaderName = read_string()
             obj = bpy.context.object
 
-            if shaderName == 'MeshCollision.fx':
+            if shaderName == "MeshCollision.fx":
                 mat = assign_material("COLLISION")
-            elif shaderName in ['RSkinShadowVolume.fx', 'MeshShadowVolume.fx']:
+            elif shaderName in ["RSkinShadowVolume.fx", "MeshShadowVolume.fx"]:
                 mat = assign_material("SHADOW")
             else:
                 mat = assign_material("DUMMYMATERIAL")
@@ -775,13 +895,17 @@ class ALO_Importer(bpy.types.Operator):
             # find shader, ignoring case
             currentKey = None
             for key in settings.material_parameter_dict:
-                if(key.lower() == shaderName.lower()):
+                if key.lower() == shaderName.lower():
                     currentKey = key
                     break
 
             if currentKey is None:
-                self.report({"WARNING"}, "ALAMO - Unknown shader: " + shaderName +
-                      " setting shader to alDefault.fx")
+                self.report(
+                    {"WARNING"},
+                    "ALAMO - Unknown shader: "
+                    + shaderName
+                    + " setting shader to alDefault.fx",
+                )
                 currentKey = "alDefault.fx"
 
             mat.shaderList.shaderList = currentKey
@@ -800,16 +924,17 @@ class ALO_Importer(bpy.types.Operator):
             for subMesh in currentMesh.subMeshList:
                 bone_indices += subMesh.boneIndex
 
-            if(len(animation_mapping) != 0):
+            if len(animation_mapping) != 0:
                 # add armature modifier
-                mod = object.modifiers.new('MyRigModif', 'ARMATURE')
+                mod = object.modifiers.new("MyRigModif", "ARMATURE")
                 mod.object = armatureObject
                 mod.use_bone_envelopes = False
                 mod.use_vertex_groups = True
 
                 while counter < n_vertices:
-                    object.vertex_groups[animation_mapping[bone_indices[counter]]].add([
-                                                                                       counter], 1, 'ADD')
+                    object.vertex_groups[animation_mapping[bone_indices[counter]]].add(
+                        [counter], 1, "ADD"
+                    )
                     counter += 1
 
         # proxy and connection functions
@@ -820,8 +945,7 @@ class ALO_Importer(bpy.types.Operator):
             n_objects = struct.unpack("l", file.read(4))
             file.seek(2, 1)
             n_proxies = struct.unpack("l", file.read(4))
-            n_objects_proxies = {
-                "n_objects": n_objects[0], "n_proxies": n_proxies[0]}
+            n_objects_proxies = {"n_objects": n_objects[0], "n_proxies": n_proxies[0]}
 
             # some .alo formats have an additional unspecified value at this position
             # to read the rest correctly this code checks if this is the case here and skips appropriately
@@ -842,9 +966,9 @@ class ALO_Importer(bpy.types.Operator):
             if mesh_index < len(meshNameList):  # light objects can mess this up
                 obj = bpy.data.objects[meshNameList[mesh_index]]
             bone = armatureBlender.data.bones[bone_index]
-            if obj != None:
-                if bone.name != 'Root':
-                    constraint = obj.constraints.new('CHILD_OF')
+            if obj is not None:
+                if bone.name != "Root":
+                    constraint = obj.constraints.new("CHILD_OF")
                     constraint.target = armatureBlender
                     constraint.subtarget = bone.name
 
@@ -856,7 +980,7 @@ class ALO_Importer(bpy.types.Operator):
             counter = 0
             while counter < name_length - 1:
                 letter = str(file.read(1))
-                letter = letter[2:len(letter) - 1]
+                letter = letter[2 : len(letter) - 1]
                 proxy_name = proxy_name + letter
                 counter += 1
             file.seek(3, 1)  # skip endbyte of name, chunk mini header and size
@@ -865,7 +989,7 @@ class ALO_Importer(bpy.types.Operator):
             proxyIsHidden = False
             altDecreaseStayHidden = False
             counter = 0
-            while (name_length + 9 + counter < chunk_length):
+            while name_length + 9 + counter < chunk_length:
                 mini_chunk = file.read(1)
                 file.seek(1, 1)
                 if mini_chunk == b"\x07":
@@ -879,13 +1003,15 @@ class ALO_Importer(bpy.types.Operator):
             armatureBlender = utils.findArmature()
 
             bpy.context.view_layer.objects.active = armatureBlender
-            bpy.ops.object.mode_set(mode='EDIT')  # go to Edit mode
-            bone = armatureBlender.data.edit_bones[armatureBlender.data.bones[proxy_bone_index].name]
+            bpy.ops.object.mode_set(mode="EDIT")  # go to Edit mode
+            bone = armatureBlender.data.edit_bones[
+                armatureBlender.data.bones[proxy_bone_index].name
+            ]
             bone.EnableProxy = True
             bone.ProxyName = proxy_name
             bone.proxyIsHidden = proxyIsHidden
             bone.altDecreaseStayHidden = altDecreaseStayHidden
-            bpy.ops.object.mode_set(mode='OBJECT')  # go to Edit mode
+            bpy.ops.object.mode_set(mode="OBJECT")  # go to Edit mode
 
         # Utility functions
 
@@ -898,7 +1024,7 @@ class ALO_Importer(bpy.types.Operator):
 
         def cut_string(string):
             # bones have a 63 character limit, this function cuts longer strings with space for .xyz end used by blender to distinguish double name
-            if(len(string) > 63):
+            if len(string) > 63:
                 return string[0:59]
             else:
                 return string
@@ -910,7 +1036,7 @@ class ALO_Importer(bpy.types.Operator):
             counter = 0
             while counter < length[0] - 1:
                 letter = str(file.read(1))
-                letter = letter[2:len(letter) - 1]
+                letter = letter[2 : len(letter) - 1]
                 string = string + letter
                 counter += 1
             file.seek(1, 1)  # skip end byte of name
@@ -923,12 +1049,12 @@ class ALO_Importer(bpy.types.Operator):
             counter = 0
             while counter < length - 1:
                 letter = str(file.read(1))
-                letter = letter[2:len(letter) - 1]
+                letter = letter[2 : len(letter) - 1]
                 string = string + letter
                 counter += 1
             file.seek(1, 1)  # skip end byte of name
             return string
-        
+
         def hideObject(object):
 
             # set correct area type via context overwrite
@@ -937,13 +1063,13 @@ class ALO_Importer(bpy.types.Operator):
             for window in bpy.context.window_manager.windows:
                 screen = window.screen
                 for a in screen.areas:
-                    if a.type == 'VIEW_3D':
+                    if a.type == "VIEW_3D":
                         area = a
                         break
 
-            context_override['area'] = area
+            context_override["area"] = area
 
-            bpy.ops.object.select_all(context_override, action='DESELECT')
+            bpy.ops.object.select_all(context_override, action="DESELECT")
             object.select_set(True)
             bpy.ops.object.hide_view_set(context_override)
             object.hide_render = True
@@ -951,32 +1077,40 @@ class ALO_Importer(bpy.types.Operator):
         def hideLODs():
             # hides all but the most detailed LOD in Blender
             for object in bpy.data.objects:
-                if(object.type == 'MESH'):
+                if object.type == "MESH":
                     # check if name ends with LOD
-                    if object.name[len(object.name)-4:len(object.name)-1] == 'LOD':
+                    if (
+                        object.name[len(object.name) - 4 : len(object.name) - 1]
+                        == "LOD"
+                    ):
                         # check for hightest LOD
                         lodCounter = 0
-                        while (object.name[:-1]+str(lodCounter) in bpy.data.objects):
+                        while object.name[:-1] + str(lodCounter) in bpy.data.objects:
                             lodCounter += 1
                         # hide smaller LODS
                         counter = 0
-                        while(counter < lodCounter-1):
+                        while counter < lodCounter - 1:
                             hideObject(
-                                bpy.data.objects[object.name[:-1] + str(counter)])
+                                bpy.data.objects[object.name[:-1] + str(counter)]
+                            )
                             counter += 1
 
             # hide object if its a shadow or a collision
             for object in bpy.data.objects:
-                if object.type == 'MESH':
+                if object.type == "MESH":
                     if len(object.material_slots) != 0:
                         shader = object.material_slots[0].material.shaderList.shaderList
-                        if(shader == 'MeshCollision.fx' or shader == 'RSkinShadowVolume.fx' or shader == 'MeshShadowVolume.fx'):
+                        if (
+                            shader == "MeshCollision.fx"
+                            or shader == "RSkinShadowVolume.fx"
+                            or shader == "MeshShadowVolume.fx"
+                        ):
                             hideObject(object)
 
             # hide objects that are set to not visible
             for object in bpy.data.objects:
-                if (object.type == 'MESH'):
-                    if object.Hidden == True:
+                if object.type == "MESH":
+                    if object.Hidden:
                         hideObject(object)
 
         def deleteRoot():
@@ -984,12 +1118,11 @@ class ALO_Importer(bpy.types.Operator):
             armature.select_set(True)  # select the skeleton
             context.view_layer.objects.active = armature
 
-            if bpy.ops.object.mode != 'EDIT':
-                bpy.ops.object.mode_set(mode='EDIT')
-            if 'Root' in armature.data.edit_bones:
-                armature.data.edit_bones.remove(
-                    armature.data.edit_bones['Root'])
-            bpy.ops.object.mode_set(mode='OBJECT')
+            if bpy.ops.object.mode != "EDIT":
+                bpy.ops.object.mode_set(mode="EDIT")
+            if "Root" in armature.data.edit_bones:
+                armature.data.edit_bones.remove(armature.data.edit_bones["Root"])
+            bpy.ops.object.mode_set(mode="OBJECT")
 
         # material utility functions
 
@@ -1005,33 +1138,74 @@ class ALO_Importer(bpy.types.Operator):
             if os.path.isfile(newPath):
                 return newPath
             else:
-                self.report({"WARNING"}, f'ALAMO - {texture_name} not found in {submod}, falling back to default')
+                self.report(
+                    {"WARNING"},
+                    f"ALAMO - {texture_name} not found in {submod}, falling back to default",
+                )
                 return path
 
         def load_image(texture_name):
-            if texture_name == 'None':
+            if texture_name == "None":
                 return
-            elif (texture_name in bpy.data.images):
+            elif texture_name in bpy.data.images:
                 img = bpy.data.images[texture_name]
             else:
                 path = file.name
                 path = os.path.split(path)[0]
                 path = os.path.split(path)[0] + "/TEXTURES/" + texture_name
                 if self.properties.textureOverride != "NONE":
-                    path = textureOverride(path, self.properties.textureOverride, texture_name)
+                    path = textureOverride(
+                        path, self.properties.textureOverride, texture_name
+                    )
 
                 if os.path.isfile(path):
                     img = bpy.data.images.load(path)
                 else:
-                    self.report({"WARNING"}, "ALAMO - Couldn't find texture: " + texture_name)
+                    self.report(
+                        {"WARNING"}, "ALAMO - Couldn't find texture: " + texture_name
+                    )
                     return
 
         def validate_material_prop(name):
-            material_props = ["BaseTexture", "NormalTexture", "GlossTexture", "WaveTexture", "DistortionTexture", "CloudTexture", "CloudNormalTexture", "Emissive", "Diffuse", "Specular", "Shininess", "Colorization" \
-                , "DebugColor", "UVOffset", "Color", "UVScrollRate", "DiffuseColor", "EdgeBrightness", "BaseUVScale", "WaveUVScale", "DistortUVScale", "BaseUVScrollRate", "WaveUVScrollRate", "DistortUVScrollRate", "BendScale" \
-                , "Diffuse1", "CloudScrollRate", "CloudScale", "SFreq", "TFreq", "DistortionScale", "Atmosphere", "CityColor", "AtmospherePower", "SpecularTexture"]
+            material_props = [
+                "BaseTexture",
+                "NormalTexture",
+                "GlossTexture",
+                "WaveTexture",
+                "DistortionTexture",
+                "CloudTexture",
+                "CloudNormalTexture",
+                "Emissive",
+                "Diffuse",
+                "Specular",
+                "Shininess",
+                "Colorization",
+                "DebugColor",
+                "UVOffset",
+                "Color",
+                "UVScrollRate",
+                "DiffuseColor",
+                "EdgeBrightness",
+                "BaseUVScale",
+                "WaveUVScale",
+                "DistortUVScale",
+                "BaseUVScrollRate",
+                "WaveUVScrollRate",
+                "DistortUVScrollRate",
+                "BendScale",
+                "Diffuse1",
+                "CloudScrollRate",
+                "CloudScale",
+                "SFreq",
+                "TFreq",
+                "DistortionScale",
+                "Atmosphere",
+                "CityColor",
+                "AtmospherePower",
+                "SpecularTexture",
+            ]
 
-            if(name in material_props):
+            if name in material_props:
                 return True
             self.report({"WARNING"}, "ALAMO - Unknown material porperty: " + name)
             return False
@@ -1040,49 +1214,49 @@ class ALO_Importer(bpy.types.Operator):
             file.seek(4, 1)  # skip size
             name = read_string_mini_chunk()
             file.seek(2, 1)  # skip mini header and size
-            value = struct.unpack('<I', file.read(4))[0]
+            value = struct.unpack("<I", file.read(4))[0]
 
             if validate_material_prop(name):
-                exec('material.' + name + '= value')
+                exec("material." + name + "= value")
 
         def read_float(material):
             file.seek(4, 1)  # skip size
             name = read_string_mini_chunk()
             file.seek(2, 1)  # skip mini header and size
-            value = struct.unpack('<f', file.read(4))[0]
+            value = struct.unpack("<f", file.read(4))[0]
 
             if validate_material_prop(name):
-                exec('material.' + name + '= value')
+                exec("material." + name + "= value")
 
         def read_float3(material):
             file.seek(4, 1)  # skip size
             name = read_string_mini_chunk()
             file.seek(2, 1)  # skip mini header and size
-            value1 = struct.unpack('<f', file.read(4))[0]
-            value2 = struct.unpack('<f', file.read(4))[0]
-            value3 = struct.unpack('<f', file.read(4))[0]
+            value1 = struct.unpack("<f", file.read(4))[0]
+            value2 = struct.unpack("<f", file.read(4))[0]
+            value3 = struct.unpack("<f", file.read(4))[0]
 
             value = (value1, value2, value3)
 
             if validate_material_prop(name):
-                exec('material.' + name + '= value')
+                exec("material." + name + "= " + value)
 
         def read_float4(material):
             file.seek(4, 1)  # skip size
             name = read_string_mini_chunk()
             file.seek(2, 1)  # skip mini header and size
-            value1 = struct.unpack('<f', file.read(4))[0]
-            value2 = struct.unpack('<f', file.read(4))[0]
-            value3 = struct.unpack('<f', file.read(4))[0]
-            value4 = struct.unpack('<f', file.read(4))[0]
+            value1 = struct.unpack("<f", file.read(4))[0]
+            value2 = struct.unpack("<f", file.read(4))[0]
+            value3 = struct.unpack("<f", file.read(4))[0]
+            value4 = struct.unpack("<f", file.read(4))[0]
 
             value = (value1, value2, value3, value4)
 
             if validate_material_prop(name):
-                exec('material.' + name + '= value')
+                exec("material." + name + "= value")
 
         def setRenderToEevee():
-            bpy.context.scene.render.engine = 'BLENDER_EEVEE'
+            bpy.context.scene.render.engine = "BLENDER_EEVEE"
 
         def loadAnimations(filePath):
             # remove ending
@@ -1096,7 +1270,7 @@ class ALO_Importer(bpy.types.Operator):
 
             for file in listdir(path):
                 fileExt = file[-4:]
-                if(fileExt.lower() == ".ala" and file[0:len(fileName)] == fileName):
+                if fileExt.lower() == ".ala" and file[0 : len(fileName)] == fileName:
                     animationFiles.append(file)
 
             importer = import_ala.AnimationImporter()
@@ -1123,46 +1297,50 @@ class ALO_Importer(bpy.types.Operator):
         global fileName
         fileName = self.properties.filepath.split("\\")
         fileName = fileName[len(fileName) - 1]
-        fileName = fileName[:len(fileName) - 4]
+        fileName = fileName[: len(fileName) - 4]
 
         global importCollection
         importCollection = bpy.data.collections.new(fileName)
         bpy.context.scene.collection.children.link(importCollection)
 
         # is changed due to implementation details in the enum callback
-        activeArmatureBackup = 'None'
+        activeArmatureBackup = "None"
         originalArmature = utils.findArmature()
-        if(originalArmature != None):
+        if originalArmature != None:
             activeArmatureBackup = originalArmature.name
 
         global file
         filepath = self.properties.filepath
-        file = open(filepath, 'rb')  # open file in read binary mode
+        file = open(filepath, "rb")  # open file in read binary mode
         # setRenderToEevee()
         process_active_junk()
         removeShadowDoubles()
         hideLODs()
         deleteRoot()
-        if(self.importAnimations):
+        if self.importAnimations:
             loadAnimations(filepath)
 
         # restore previous active armature
-        if(activeArmatureBackup != 'None'):
+        if activeArmatureBackup != "None":
             createdArmature = utils.findArmature()  # get new armature
-            bpy.context.scene.ActiveSkeleton.skeletonEnum = activeArmatureBackup  # restore
+            bpy.context.scene.ActiveSkeleton.skeletonEnum = (
+                activeArmatureBackup  # restore
+            )
             armature = utils.findArmature()
             # set parent
-            if(self.parentName != 'None' and armature != None):
+            if self.parentName != "None" and armature != None:
                 parentBone = armature.data.bones[self.parentName]
-                if(parentBone != None):
+                if parentBone != None:
                     createdArmature.parent = armature
                     createdArmature.parent_bone = self.parentName
-                    createdArmature.parent_type = 'BONE'
+                    createdArmature.parent_type = "BONE"
         for object in bpy.data.objects:
             for constraint in object.constraints:
                 constraint.inverse_matrix = mathutils.Matrix.Identity(4)
-        return {'FINISHED'}            # this lets blender know the operator finished successfully.
+        return {
+            "FINISHED"
+        }  # this lets blender know the operator finished successfully.
 
     def invoke(self, context, event):
         context.window_manager.fileselect_add(self)
-        return {'RUNNING_MODAL'}
+        return {"RUNNING_MODAL"}
