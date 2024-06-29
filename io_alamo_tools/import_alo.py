@@ -120,7 +120,7 @@ class ALO_Importer(Operator):
                     print("Found Connection Chunk")
                 elif active_chunk == b"\x02\x06\x00\00":
                     file.seek(4, 1)  # skip size
-                    read_conncetion(armatureData, meshNameList)
+                    read_connection(armatureData, meshNameList)
                 elif active_chunk == b"\x03\x06\x00\00":
                     read_proxy()
 
@@ -954,23 +954,25 @@ class ALO_Importer(Operator):
 
             return n_objects_proxies
 
-        def read_conncetion(armatureData, meshNameList):
-            file.seek(2, 1)  # skip head and size
-            mesh_index = struct.unpack("I", file.read(4))[0]
-            file.seek(2, 1)  # skip head and size
-            bone_index = struct.unpack("I", file.read(4))[0]
-            armatureBlender = utils.findArmature()
+        def read_connection(armatureData, meshNameList):
+            # TODO ML: not entirely sure what this is for. seems to create additional constraints to bones but also skinds them so they get placed in the wrong position??
+            pass
+            # file.seek(2, 1)  # skip head and size
+            # mesh_index = struct.unpack("I", file.read(4))[0]
+            # file.seek(2, 1)  # skip head and size
+            # bone_index = struct.unpack("I", file.read(4))[0]
+            # armatureBlender = utils.findArmature()
 
             # set connection of object to bone and move object to bone
-            obj = None
-            if mesh_index < len(meshNameList):  # light objects can mess this up
-                obj = bpy.data.objects[meshNameList[mesh_index]]
-            bone = armatureBlender.data.bones[bone_index]
-            if obj is not None:
-                if bone.name != "Root":
-                    constraint = obj.constraints.new("CHILD_OF")
-                    constraint.target = armatureBlender
-                    constraint.subtarget = bone.name
+            # obj = None
+            # if mesh_index < len(meshNameList):  # light objects can mess this up
+            #    obj = bpy.data.objects[meshNameList[mesh_index]]
+            # bone = armatureBlender.data.bones[bone_index]
+            # if obj is not None:
+            #     if bone.name != "Root":
+            #         constraint = obj.constraints.new("CHILD_OF")
+            #         constraint.target = armatureBlender
+            #         constraint.subtarget = bone.name
 
         def read_proxy():
             chunk_length = struct.unpack("I", file.read(4))[0]
@@ -1069,9 +1071,11 @@ class ALO_Importer(Operator):
 
             context_override["area"] = area
 
-            bpy.ops.object.select_all(context_override, action="DESELECT")
+            bpy.ops.object.select_all(
+                action="DESELECT",
+            )
             object.select_set(True)
-            bpy.ops.object.hide_view_set(context_override)
+            object.hide_set(True)
             object.hide_render = True
 
         def hideLODs():
@@ -1095,6 +1099,10 @@ class ALO_Importer(Operator):
                             )
                             counter += 1
 
+            # Cache LOD objects and objects to hide by type
+            lod_objects = {}
+            hide_candidates = []
+
             # hide object if its a shadow or a collision
             for object in bpy.data.objects:
                 if object.type == "MESH":
@@ -1104,14 +1112,39 @@ class ALO_Importer(Operator):
                             shader == "MeshCollision.fx"
                             or shader == "RSkinShadowVolume.fx"
                             or shader == "MeshShadowVolume.fx"
+                            or shader == "alDefault.fx"
+                            or shader == "MeshAdditive.fx"
                         ):
                             hideObject(object)
+            if bpy.context.object and bpy.context.object.mode != "OBJECT":
+                bpy.ops.object.mode_set(mode="OBJECT")
 
-            # hide objects that are set to not visible
-            for object in bpy.data.objects:
-                if object.type == "MESH":
-                    if object.Hidden:
-                        hideObject(object)
+            for obj in bpy.data.objects:
+                if obj.type == "MESH":
+                    if obj.name.endswith("LOD"):
+                        base_name = obj.name[:-1]
+                        lod_objects.setdefault(base_name, []).append(obj)
+                    elif len(obj.material_slots) > 0:
+                        shader = obj.material_slots[0].material.shaderList.shaderList
+                        if shader in {
+                            "MeshCollision.fx",
+                            "RSkinShadowVolume.fx",
+                            "MeshShadowVolume.fx",
+                        }:
+                            hide_candidates.append(obj)
+                    elif getattr(obj, "Hidden", False):
+                        hide_candidates.append(obj)
+
+            # Hide all but the highest LOD
+            for base_name, objects in lod_objects.items():
+                highest_lod = max(objects, key=lambda o: int(o.name[-1]))
+                for obj in objects:
+                    if obj != highest_lod:
+                        hideObject(obj)
+
+            # Hide collision and shadow objects, and objects marked as hidden
+            for obj in hide_candidates:
+                hideObject(obj)
 
         def deleteRoot():
             armature = utils.findArmature()
@@ -1312,7 +1345,7 @@ class ALO_Importer(Operator):
         global file
         filepath = self.properties.filepath
         file = open(filepath, "rb")  # open file in read binary mode
-        # setRenderToEevee()
+        setRenderToEevee()
         process_active_junk()
         removeShadowDoubles()
         hideLODs()

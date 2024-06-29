@@ -387,9 +387,13 @@ def validate(data):
         if name not in armature.data.bones:
             fitting = False
             break
+
     if fitting:
         return True
-    raise Exception("animation bones not matching active armature")
+    else:
+        print('Exception("animation bones not matching active armature"')
+        return False
+    # raise Exception("animation bones not matching active armature")
 
 
 class AnimationImporter:
