@@ -1,8 +1,9 @@
 import bpy
 from . import settings
+from bpy.types import Panel, PropertyGroup
 
 
-class ALAMO_PT_materialPropertyPanel(bpy.types.Panel):
+class ALAMO_PT_materialPropertyPanel(Panel):
     bl_label = "Alamo Shader Properties"
     bl_id = "ALAMO_PT_materialPropertyPanel"
     bl_space_type = "PROPERTIES"
@@ -15,7 +16,7 @@ class ALAMO_PT_materialPropertyPanel(bpy.types.Panel):
         col = layout.column()
 
         # if type(object) != type(None) and object.type == "MESH":
-        if type(object) != type(None) and object.type == "MESH":
+        if type(object) is not type(None) and object.type == "MESH":
             material = bpy.context.active_object.active_material
             if material is not None:
                 # a None image is needed to represent not using a texture
@@ -35,7 +36,7 @@ class ALAMO_PT_materialPropertyPanel(bpy.types.Panel):
                             # layout.template_ID(material, shader_prop, new="image.new", open="image.open")
 
 
-class ALAMO_PT_materialPropertySubPanel(bpy.types.Panel):
+class ALAMO_PT_materialPropertySubPanel(Panel):
     bl_label = "Additional Properties"
     bl_parent_id = "ALAMO_PT_materialPropertyPanel"
     bl_space_type = "PROPERTIES"
@@ -63,7 +64,7 @@ class ALAMO_PT_materialPropertySubPanel(bpy.types.Panel):
                         col.prop(material, shader_prop)
 
 
-class shaderListProperties(bpy.types.PropertyGroup):
+class shaderListProperties(PropertyGroup):
     mode_options = [
         (shader_name, shader_name, "", "", index)
         for index, shader_name in enumerate(settings.material_parameter_dict)

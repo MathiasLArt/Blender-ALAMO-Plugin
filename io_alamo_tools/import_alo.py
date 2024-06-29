@@ -1306,7 +1306,7 @@ class ALO_Importer(Operator):
         # is changed due to implementation details in the enum callback
         activeArmatureBackup = "None"
         originalArmature = utils.findArmature()
-        if originalArmature != None:
+        if originalArmature is not None:
             activeArmatureBackup = originalArmature.name
 
         global file
@@ -1328,7 +1328,7 @@ class ALO_Importer(Operator):
             )
             armature = utils.findArmature()
             # set parent
-            if self.parentName != "None" and armature != None:
+            if self.parentName != "None" and armature is not None:
                 parentBone = armature.data.bones[self.parentName]
                 if parentBone != None:
                     createdArmature.parent = armature

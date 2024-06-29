@@ -71,6 +71,7 @@ def threebox(layout, all_same, operator, label):
     row.operator(operator, text="", icon=icon)
     row.label(text=label)
 
+
 def setProp(all_same, objects, prop):
     set_to = False
     if all_same in (None, False):
@@ -100,7 +101,9 @@ def skeletonEnumCallback(scene, context):
 class keyframeProxySet(bpy.types.Operator):
     bl_idname = "alamo.set_keyframe_proxy"
     bl_label = ""
-    bl_description = "Create a keyframe and set proxyIsHiddenAnimation for all selected bones"
+    bl_description = (
+        "Create a keyframe and set proxyIsHiddenAnimation for all selected bones"
+    )
 
     @classmethod
     def poll(cls, context):
@@ -219,11 +222,7 @@ class CreateConstraintBone(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         obj = bpy.context.object
-        if (
-            obj is not None
-            and obj.type == "MESH"
-            and bpy.context.mode == "OBJECT"
-        ):
+        if obj is not None and obj.type == "MESH" and bpy.context.mode == "OBJECT":
             armature = utils.findArmature()
             if armature is not None:
                 has_child_constraint = False
@@ -336,7 +335,7 @@ class ALAMO_PT_ObjectPanel(bpy.types.Panel):
         layout = self.layout
 
         obj = context.object
-        if obj is not None and obj.type == 'MESH':
+        if obj is not None and obj.type == "MESH":
             col = layout.column()
             col.prop(obj, "HasCollision", text="Collision")
             col.prop(obj, "Hidden")
@@ -592,7 +591,9 @@ def register():
     bpy.types.PoseBone.proxyIsHiddenAnimation = BoolProperty()
     bpy.types.EditBone.altDecreaseStayHidden = BoolProperty()
     bpy.types.EditBone.ProxyName = StringProperty(update=proxy_name_update)
-    bpy.types.EditBone.billboardMode = bpy.props.PointerProperty(type=billboardListProperties)
+    bpy.types.EditBone.billboardMode = bpy.props.PointerProperty(
+        type=billboardListProperties
+    )
 
     bpy.types.Object.HasCollision = BoolProperty()
     bpy.types.Object.Hidden = BoolProperty()
