@@ -956,23 +956,22 @@ class ALO_Importer(Operator):
 
         def read_connection(armatureData, meshNameList):
             # TODO ML: not entirely sure what this is for. seems to create additional constraints to bones but also skinds them so they get placed in the wrong position??
-            pass
-            # file.seek(2, 1)  # skip head and size
-            # mesh_index = struct.unpack("I", file.read(4))[0]
-            # file.seek(2, 1)  # skip head and size
-            # bone_index = struct.unpack("I", file.read(4))[0]
-            # armatureBlender = utils.findArmature()
+            file.seek(2, 1)  # skip head and size
+            mesh_index = struct.unpack("I", file.read(4))[0]
+            file.seek(2, 1)  # skip head and size
+            bone_index = struct.unpack("I", file.read(4))[0]
+            armatureBlender = utils.findArmature()
 
-            # set connection of object to bone and move object to bone
-            # obj = None
-            # if mesh_index < len(meshNameList):  # light objects can mess this up
-            #    obj = bpy.data.objects[meshNameList[mesh_index]]
-            # bone = armatureBlender.data.bones[bone_index]
-            # if obj is not None:
-            #     if bone.name != "Root":
-            #         constraint = obj.constraints.new("CHILD_OF")
-            #         constraint.target = armatureBlender
-            #         constraint.subtarget = bone.name
+            #set connection of object to bone and move object to bone
+            obj = None
+            if mesh_index < len(meshNameList):  # light objects can mess this up
+               obj = bpy.data.objects[meshNameList[mesh_index]]
+            bone = armatureBlender.data.bones[bone_index]
+            if obj is not None:
+                if bone.name != "Root":
+                    constraint = obj.constraints.new("CHILD_OF")
+                    constraint.target = armatureBlender
+                    constraint.subtarget = bone.name
 
         def read_proxy():
             chunk_length = struct.unpack("I", file.read(4))[0]
